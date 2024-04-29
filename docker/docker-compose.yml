@@ -1,0 +1,81 @@
+version: '3.3'
+name: graduation-phase-five
+services:  
+  sendemailworker:
+    image: ${DOCKER_REGISTRY-}enzotlucas31/sendemailworker
+    networks:
+      - backend
+    build:
+      context: ../
+      dockerfile: ./src/Techblog.Notifications.SendEmail.Worker/Dockerfile
+    container_name: sendemailworker
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 50M
+
+  notificationapi:
+    image: ${DOCKER_REGISTRY-}enzotlucas31/notificationapi
+    networks:
+      - backend
+    build:
+      context: ../
+      dockerfile: ./src/TechBlog.Notification.API/Dockerfile
+    container_name: notificationapi
+    depends_on:
+      - sendemailworker
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 100M
+
+  usersapi:
+    image: ${DOCKER_REGISTRY-}enzotlucas31/usersapi
+    networks:
+      - backend
+    build:
+      context: ../
+      dockerfile: ./src/TechBlog.Users.API/Dockerfile
+    container_name: usersapi
+    depends_on:
+      - notificationapi
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+
+  newsapi:
+    image: ${DOCKER_REGISTRY-}enzotlucas31/newsapi
+    networks:
+      - backend
+    build:
+      context: ../
+      dockerfile: ./src/TechBlog.News.API/Dockerfile
+    container_name: newsapi
+    depends_on:
+      - usersapi
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+
+networks:
+  backend:
+    driver: bridge

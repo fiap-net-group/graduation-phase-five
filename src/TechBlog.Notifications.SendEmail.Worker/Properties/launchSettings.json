@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "TechBlog.Notifications.SendEmail.Worker": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Production"
+      }
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

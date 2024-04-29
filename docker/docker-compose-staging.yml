@@ -1,0 +1,122 @@
+version: '3.3'
+name: graduation-phase-five
+services:
+  rabbitmq:
+    image: masstransit/rabbitmq:latest
+    container_name: 'rabbitmq'
+    ports:
+        - 5672:5672
+        - 15672:15672
+    networks:
+        - backend
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    networks:
+      - backend
+    container_name: sqlserver
+    environment:
+      ACCEPT_EULA: 'Y'
+      SA_PASSWORD: "AvS#a1s45s"
+      MSSQL_PID: Express
+    volumes:
+      - c:\data\volumes\mssql:/var/opt/mssql3
+    ports:
+      - '1433:1433'    
+
+  mongodb:
+    image: mongo:latest
+    networks:
+      - backend
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+
+  sendemailworker:
+    image: ${DOCKER_REGISTRY-}sendemailworker
+    networks:
+      - backend
+    build:
+      context: ../
+      dockerfile: ./src/Techblog.Notifications.SendEmail.Worker/Dockerfile
+    container_name: sendemailworker
+    depends_on:
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 50M
+
+  notificationapi:
+    image: ${DOCKER_REGISTRY-}notificationapi
+    networks:
+      - backend
+    build:
+      context: ../
+      dockerfile: ./src/TechBlog.Notification.API/Dockerfile
+    container_name: notificationapi
+    depends_on:
+      - sendemailworker
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+      - ASPNETCORE_URLS=http://+:80
+    ports:
+      - "5015:80"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 100M
+
+  usersapi:
+    image: ${DOCKER_REGISTRY-}usersapi
+    networks:
+      - backend
+    build:
+      context: ../
+      dockerfile: ./src/TechBlog.Users.API/Dockerfile
+    container_name: usersapi
+    depends_on:
+      - sqlserver
+      - notificationapi
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+      - ASPNETCORE_URLS=http://+:80
+    ports:
+      - "5015:80"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+
+  newsapi:
+    image: ${DOCKER_REGISTRY-}newsapi
+    networks:
+      - backend
+    build:
+      context: ../
+      dockerfile: ./src/TechBlog.News.API/Dockerfile
+    container_name: newsapi
+    depends_on:
+      - usersapi
+      - mongodb
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Staging
+      - ASPNETCORE_URLS=http://+:80
+    ports:
+      - "5020:80"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+
+networks:
+  backend:
+    driver: bridge
